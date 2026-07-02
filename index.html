@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1b2a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="mask-icon" href="/icon.svg" color="#2fbf9b" />
+  <title>sqweee</title>
+  <style>
+    :root { --ui: #eaf6ff; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0d1b2a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none;
+    }
+    #game { display: block; width: 100vw; height: 100vh; touch-action: none; }
+
+    /* --- HUD --- */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: max(12px, env(safe-area-inset-top)) 16px 0;
+      pointer-events: none; color: var(--ui);
+      text-shadow: 0 2px 8px rgba(0,0,0,.45);
+    }
+    #count { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
+    #count small { font-size: 14px; font-weight: 600; opacity: .75; margin-left: 6px; }
+    #barWrap {
+      margin-top: 8px; width: min(240px, 55vw); height: 10px;
+      background: rgba(255,255,255,.16); border-radius: 99px; overflow: hidden;
+    }
+    #bar { height: 100%; width: 0%; border-radius: 99px; transition: width .25s ease; }
+    #level { font-size: 13px; font-weight: 700; opacity: .8; margin-top: 5px; }
+    #best { font-size: 13px; font-weight: 700; margin-top: 3px; color: #ffe27a; opacity: .85; }
+    #bestStart { font-size: 15px; font-weight: 800; color: #ffe27a; opacity: .9; min-height: 20px; }
+
+    /* --- Toast --- */
+    #toast {
+      position: fixed; left: 50%; top: 22%; transform: translate(-50%, -12px);
+      background: rgba(20,30,50,.82); color: #fff; padding: 12px 20px; border-radius: 16px;
+      font-size: 16px; font-weight: 700; opacity: 0; pointer-events: none;
+      backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.14);
+      transition: opacity .35s ease, transform .35s ease; text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* --- Start overlay (needed to unlock audio on mobile) --- */
+    #start {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px;
+      background: radial-gradient(circle at 50% 40%, #16324f, #0d1b2a 70%);
+      color: var(--ui); z-index: 10; text-align: center; padding: 24px;
+    }
+    #start h1 { font-size: 52px; font-weight: 900; letter-spacing: 1px; }
+    #start p { font-size: 16px; opacity: .8; max-width: 320px; line-height: 1.5; }
+    #playBtn {
+      margin-top: 10px; padding: 16px 40px; font-size: 20px; font-weight: 800;
+      color: #06263f; background: #7ef0c8; border: none; border-radius: 99px;
+      box-shadow: 0 8px 24px rgba(126,240,200,.35); cursor: pointer;
+    }
+    #playBtn:active { transform: scale(.96); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="count">0<small>absorbed</small></div>
+    <div id="barWrap"><div id="bar"></div></div>
+    <div id="level">Size Lv 1</div>
+    <div id="best">Best combo 0</div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="start">
+    <h1>sqweee</h1>
+    <p>Drag anywhere to roll. Absorb anything smaller than you and grow. Chain bites fast to build a combo — how high can you streak?</p>
+    <div id="bestStart"></div>
+    <button id="playBtn">Play</button>
+  </div>
+
+  <!-- vite-plugin-pwa injects the manifest link + service-worker registration. -->
+  <script type="module" src="/src/game.js"></script>
+</body>
+</html>
