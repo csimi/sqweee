@@ -24,7 +24,7 @@ export default defineConfig({
         background_color: '#0d1b2a',
         display: 'fullscreen',
         display_override: ['fullscreen', 'standalone'],
-        orientation: 'portrait',
+        orientation: 'any',      // follow the device — the HUD adapts to landscape (don't lock to portrait)
         start_url: './',
         scope: './',
         icons: [
