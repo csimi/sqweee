@@ -17,6 +17,10 @@ export default defineConfig({
       injectRegister: 'auto',
       includeAssets: ['icon.svg'],
       manifest: {
+        // Stable install identity. Without an explicit id the browser keys the
+        // install off start_url, so a base/URL change spawns a DUPLICATE icon
+        // instead of updating. Keep this constant forever.
+        id: '/sqweee/',
         name: 'sqweee',
         short_name: 'sqweee',
         description: 'Endless roll & absorb blob game.',
