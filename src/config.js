@@ -110,6 +110,13 @@ export const CONFIG = {
                              // (viewport-relative, so it clears the same visible chunk on any device)
   EXPLOSION_COMBO_GRACE: 4,  // seconds of combo window granted after a bomb — the blast clears the
                              // field, so give time to reach the next cluster before the streak dies
+  FREEZE_DURATION: 4.5,      // seconds a freeze pickup pauses the combo timer so you can reposition
+  FRENZY_DURATION: 5,        // seconds a frenzy pickup makes everything edible
+  FRENZY_ABSORB_RATIO: 2.4,  // during frenzy you can eat objects up to this × your radius (past 1 = obstacles too)
+  PHASE_DURATION: 5,         // seconds a phase pickup lets you roll straight through obstacles
+  HASTE_DURATION: 6,         // seconds a haste pickup boosts your top speed + steering
+  HASTE_SPEED_MULT: 1.7,     // top-speed multiplier while hasted
+  HASTE_STEER_MULT: 1.5,     // steering snappiness multiplier while hasted
 
   // --- JUICE ------------------------------------------------------------------
   SHAKE_DECAY: 12,         // how fast screen-shake settles (higher = snappier)
@@ -146,11 +153,18 @@ export const OBJECT_COLORS = [
   '#b5179e', '#90be6d', '#f9c74f', '#7bdff2', '#ff99c8',
 ];
 
-// Special pickups. `kind` is stamped on the object; each has a signature colour
-// and a glyph drawn on top so they read as "not just a snack".
+// Special pickups. `kind` is stamped on the object; each has a signature colour,
+// a glyph drawn on top so they read as "not just a snack", and a spawn `weight`
+// (relative rarity within the pickup pool — powerful effects are rarer).
 export const PICKUPS = {
-  golden: { color: '#ffcf3f', glyph: '★' },  // big growth + streak boost
-  magnet: { color: '#57b6ff', glyph: '⌾' },  // auto-pull nearby snacks
-  boom:   { color: '#ff6b4a', glyph: '✷' },  // explosion: pops every snack nearby
+  golden: { color: '#ffcf3f', glyph: '★', weight: 5 },  // big growth + streak boost
+  magnet: { color: '#57b6ff', glyph: '⌾', weight: 4 },  // auto-pull nearby snacks
+  boom:   { color: '#ff6b4a', glyph: '✷', weight: 3 },  // explosion: pops every snack nearby
+  freeze: { color: '#6fe0ff', glyph: '❋', weight: 4 },  // pause the combo timer
+  shield: { color: '#b0a4ff', glyph: '✜', weight: 3 },  // bank one free combo-break
+  phase:  { color: '#d9d2ff', glyph: '❍', weight: 3 },  // roll through obstacles
+  haste:  { color: '#ffe27a', glyph: '➤', weight: 3 },  // temporary speed boost
+  frenzy: { color: '#ff5ea8', glyph: '✺', weight: 2 },  // everything becomes edible
 };
 export const PICKUP_KINDS = Object.keys(PICKUPS);
+export const PICKUP_TOTAL_WEIGHT = PICKUP_KINDS.reduce((sum, k) => sum + (PICKUPS[k].weight || 1), 0);

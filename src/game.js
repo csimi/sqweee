@@ -36,7 +36,10 @@ space.worldLinearDrag = CONFIG.COAST_DRAG; // gives the coast-to-a-stop glide
 const bouncy = new Material(CONFIG.BOUNCE_ELASTICITY, 0.1, 0.2);
 
 const blobBody = new Body(BodyType.DYNAMIC, new Vec2(0, 0));
-blobBody.shapes.add(new Circle(CONFIG.BLOB_START_RADIUS, undefined, bouncy));
+// Keep a direct reference to the circle so the phase pickup can flip it to a
+// sensor (overlaps without physical response = roll straight through obstacles).
+const blobCircle = new Circle(CONFIG.BLOB_START_RADIUS, undefined, bouncy);
+blobBody.shapes.add(blobCircle);
 blobBody.allowRotation = false;            // no spinning; eyes stay upright
 blobBody.space = space;
 let physRadius = CONFIG.BLOB_START_RADIUS;  // radius the Nape shape currently is
@@ -89,10 +92,28 @@ function bumpCombo() {
     }
   }
 }
-function resetCombo() { combo = 0; beatBestThisRun = false; comboWindowMax = CONFIG.COMBO_WINDOW; }
+// End the current streak — unless a banked streak shield absorbs the break, in
+// which case the combo survives and the timer is refreshed. Returns true only
+// when the streak actually reset (so callers can react, e.g. the boost crash).
+function resetCombo() {
+  if (streakShield && combo >= 2) {
+    streakShield = false;
+    keepComboAlive();
+    showToast('✜ Streak shield saved your combo!');
+    chime();
+    return false;
+  }
+  combo = 0; beatBestThisRun = false; comboWindowMax = CONFIG.COMBO_WINDOW;
+  return true;
+}
 
 // Active pickup effects + juice
 let magnetTimer = 0;          // seconds of magnet left
+let freezeTimer = 0;          // seconds the combo timer is paused (freeze pickup)
+let frenzyTimer = 0;          // seconds everything is edible (frenzy pickup)
+let phaseTimer = 0;           // seconds of rolling through obstacles (phase pickup)
+let hasteTimer = 0;           // seconds of speed/steer boost (haste pickup)
+let streakShield = false;     // banked free combo-break (shield pickup)
 let shake = 0;                // current screen-shake magnitude (px), decays each frame
 
 // Growth multiplier from the current streak (1 at combo 0/1, capped).
@@ -217,6 +238,11 @@ function handleAbsorb(dt, camX, camY) {
         // safely consume other objects without disturbing our iteration.
         if (obj.kind === 'magnet') magnetTimer = CONFIG.MAGNET_DURATION;
         else if (obj.kind === 'boom') detonate = true;
+        else if (obj.kind === 'freeze') freezeTimer = CONFIG.FREEZE_DURATION;
+        else if (obj.kind === 'frenzy') frenzyTimer = CONFIG.FRENZY_DURATION;
+        else if (obj.kind === 'phase') phaseTimer = CONFIG.PHASE_DURATION;
+        else if (obj.kind === 'haste') hasteTimer = CONFIG.HASTE_DURATION;
+        else if (obj.kind === 'shield') streakShield = true;
 
         // Gulp inward on the mouth side (springs back); spray sparks from the RIM
         // outward — brighter/bigger as the combo climbs or on a pickup.
@@ -311,7 +337,7 @@ function handleKnockback(camX, camY, vx, vy) {
           // GREEDY BOOST: you rammed a too-big obstacle mid-boost. Pay for it —
           // shrink a bit (never below start) and lose your streak.
           blob.targetRadius = Math.max(CONFIG.BLOB_START_RADIUS, blob.targetRadius * CONFIG.BOOST_CRASH_SHRINK);
-          resetCombo(); comboTimer = 0;
+          if (resetCombo()) comboTimer = 0;               // shield (if banked) saves the streak
           boostGrace = 0;                                 // one penalty per boost
           addShake(16);
           blip(0.16, 0.35);                               // harsher "crunch"
@@ -513,6 +539,12 @@ function drawComboBlock(anchorX, y, align) {
 function drawEffects() {
   const active = [];
   if (magnetTimer > 0) active.push({ p: PICKUPS.magnet, t: magnetTimer, max: CONFIG.MAGNET_DURATION });
+  if (freezeTimer > 0) active.push({ p: PICKUPS.freeze, t: freezeTimer, max: CONFIG.FREEZE_DURATION });
+  if (frenzyTimer > 0) active.push({ p: PICKUPS.frenzy, t: frenzyTimer, max: CONFIG.FRENZY_DURATION });
+  if (phaseTimer > 0)  active.push({ p: PICKUPS.phase,  t: phaseTimer,  max: CONFIG.PHASE_DURATION });
+  if (hasteTimer > 0)  active.push({ p: PICKUPS.haste,  t: hasteTimer,  max: CONFIG.HASTE_DURATION });
+  // Shield has no timer — show a full bar as a "banked, ready" badge until spent.
+  if (streakShield)    active.push({ p: PICKUPS.shield, t: 1, max: 1 });
   if (!active.length) return;
   // Bottom-left normally; bottom-RIGHT only when the combo meter's extra copy
   // occupies the bottom-left (touch landscape), so they never overlap.
@@ -577,7 +609,19 @@ function frame(now) {
   if (boostGrace > 0) boostGrace -= dt;
   if (boostCooldown > 0) boostCooldown -= dt;
   if (magnetTimer > 0) magnetTimer -= dt;
-  if (comboTimer > 0) { comboTimer -= dt; if (comboTimer <= 0) resetCombo(); }
+  if (freezeTimer > 0) freezeTimer -= dt;
+  if (frenzyTimer > 0) frenzyTimer -= dt;
+  if (hasteTimer > 0) hasteTimer -= dt;
+  // Phase pickup: while active the blob's shape is a sensor (no collision
+  // response) so it rolls straight through obstacles. Flip it back when it ends.
+  if (phaseTimer > 0) {
+    phaseTimer -= dt;
+    blobCircle.sensorEnabled = true;
+    if (phaseTimer <= 0) blobCircle.sensorEnabled = false;
+  }
+  // Freeze pickup pauses the combo drain so you can reposition without breaking
+  // the streak; otherwise the timer ticks down and resets the streak at zero.
+  if (comboTimer > 0 && freezeTimer <= 0) { comboTimer -= dt; if (comboTimer <= 0) resetCombo(); }
   if (shake > 0) shake = Math.max(0, shake * (1 - Math.min(1, CONFIG.SHAKE_DECAY * dt)));
 
   // --- Steering: push the Nape body toward desired velocity via impulses,
@@ -594,17 +638,21 @@ function frame(now) {
     // Counter the camera zoom-out so on-screen speed stays constant as you grow:
     // the more the view is zoomed out, the more world speed is scaled up to match.
     const zoomComp = 1 / Math.pow(zoom, CONFIG.SPEED_ZOOM_COMP);
+    // Haste pickup: temporarily raise top speed and steering snappiness.
+    const haste = hasteTimer > 0;
+    const topSpeed = CONFIG.MAX_SPEED * (haste ? CONFIG.HASTE_SPEED_MULT : 1);
+    const steerGain = CONFIG.STEER_GAIN * (haste ? CONFIG.HASTE_STEER_MULT : 1);
     // While boosting, float the target speed up to your current speed so steering
     // still turns you but doesn't brake the surge back down to cruise speed.
-    let desSpeed = CONFIG.MAX_SPEED * zoomComp;
+    let desSpeed = topSpeed * zoomComp;
     if (boostGrace > 0) {
       desSpeed = Math.max(desSpeed, Math.hypot(blobBody.velocity.x, blobBody.velocity.y));
     }
     const desVx = steer.x * desSpeed;
     const desVy = steer.y * desSpeed;
     const mass = blobBody.mass;
-    const impX = (desVx - blobBody.velocity.x) * mass * CONFIG.STEER_GAIN * sizeGain;
-    const impY = (desVy - blobBody.velocity.y) * mass * CONFIG.STEER_GAIN * sizeGain;
+    const impX = (desVx - blobBody.velocity.x) * mass * steerGain * sizeGain;
+    const impY = (desVy - blobBody.velocity.y) * mass * steerGain * sizeGain;
     blobBody.applyImpulse(new Vec2(impX, impY));
   }
 
@@ -682,8 +730,11 @@ function frame(now) {
   const cellRadius = Math.max(CONFIG.SPAWN_RADIUS_CELLS, viewCells);
 
   // --- Systems update ---
-  world.update(camX, camY, blob.radius, cellRadius);
-  handleKnockback(camX, camY, vx, vy);
+  // Frenzy raises the absorb ratio past 1 so even too-big obstacles turn edible.
+  const absorbRatio = frenzyTimer > 0 ? CONFIG.FRENZY_ABSORB_RATIO : CONFIG.ABSORB_RATIO;
+  world.update(camX, camY, blob.radius, cellRadius, absorbRatio);
+  // Phase lets you roll straight through — skip the manual knockback/nudge too.
+  if (phaseTimer <= 0) handleKnockback(camX, camY, vx, vy);
   // Hard speed ceiling: bouncing among several obstacles (or stacked nudges)
   // can't compound into runaway velocity. Scaled by the same zoom compensation
   // so it doesn't clip the (now higher) cruise/boost speeds when zoomed out.

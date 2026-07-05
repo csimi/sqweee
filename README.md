@@ -52,10 +52,15 @@ npm run preview    # serves the built app, also on the Network URL
   snacks to eat and obstacles to dodge at every size.
 - **Combos** — chain bites before the timer drains to build a multiplier (up to **×4**)
   that boosts your growth. Your **best streak** is saved locally and shown on the start screen.
-- **Pickups** — rare glowing bubbles worth chasing:
+- **Pickups** — rare glowing bubbles worth chasing (rarer ones are more powerful):
   - **★ Golden** — a big burst of growth (worth ~7 normal bites).
   - **⌾ Magnet** — vacuums nearby snacks straight into you for a few seconds.
   - **✷ Bomb** — detonates, popping every snack around you at once (and keeping the combo alive through the blast).
+  - **❋ Freeze** — pauses the combo timer for a few seconds so you can reposition without breaking the streak.
+  - **✜ Shield** — banks one free combo-break; the next time your streak would reset, it survives instead.
+  - **❍ Phase** — roll straight *through* obstacles for a few seconds — no bouncing.
+  - **➤ Haste** — a temporary top-speed and steering boost.
+  - **✺ Frenzy** — *everything* becomes edible, even too-big obstacles. Pair it with a combo for a huge streak spike.
 - **Skins** — unlock new blob colours as your total absorbed climbs.
 
 Installable as a **PWA** — "Add to Home Screen" on mobile, or install from the address bar on desktop.
@@ -75,7 +80,7 @@ labelled and commented. The ones worth playing with first:
 | `SNACK_DENSITY_FALLOFF` | how many snacks stay around to munch as you grow (obstacles stay sparse) |
 | `BOOST_SPEED` / `BOOST_SPEED_MAX` / `BOOST_CHARGE_TIME` | boost surge from a tap vs. a full charge |
 | `COMBO_WINDOW` / `COMBO_MULT_CAP` | streak timing & max growth multiplier |
-| `PICKUP_CHANCE` / `GOLDEN_GROWTH_MULT` / `MAGNET_*` / `EXPLOSION_*` | how often pickups spawn & how strong each is |
+| `PICKUP_CHANCE` / `GOLDEN_GROWTH_MULT` / `MAGNET_*` / `EXPLOSION_*` / `FREEZE_*` / `FRENZY_*` / `PHASE_*` / `HASTE_*` | how often pickups spawn & how strong each is |
 
 Blob colours/skins, object palettes, and pickup styles are the `SKINS` /
 `OBJECT_COLORS` / `PICKUPS` exports in the same file.

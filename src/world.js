@@ -6,7 +6,17 @@
 //  data (no physics body) for performance.
 // ============================================================================
 
-import { CONFIG, OBJECT_COLORS, PICKUPS, PICKUP_KINDS } from './config.js';
+import { CONFIG, OBJECT_COLORS, PICKUPS, PICKUP_KINDS, PICKUP_TOTAL_WEIGHT } from './config.js';
+
+// Pick a pickup kind by its spawn weight (rarer effects have smaller weights).
+function pickPickupKind(rng) {
+  let roll = rng() * PICKUP_TOTAL_WEIGHT;
+  for (const k of PICKUP_KINDS) {
+    roll -= PICKUPS[k].weight || 1;
+    if (roll < 0) return k;
+  }
+  return PICKUP_KINDS[PICKUP_KINDS.length - 1];
+}
 
 // Deterministic per-cell RNG so a cell regenerates the same way if revisited.
 function mulberry32(seed) {
@@ -87,7 +97,7 @@ export class World {
     let kind = null;
     let color = OBJECT_COLORS[(rng() * OBJECT_COLORS.length) | 0];
     if (!isObstacle && rng() < CONFIG.PICKUP_CHANCE) {
-      kind = PICKUP_KINDS[(rng() * PICKUP_KINDS.length) | 0];
+      kind = pickPickupKind(rng);
       color = PICKUPS[kind].color;
     }
 
@@ -144,8 +154,10 @@ export class World {
 
   // Keep only cells near the camera; spawn missing ones; update absorbable flags.
   // `radiusCells` grows when the camera zooms out so the view stays filled.
-  update(camX, camY, blobRadius, radiusCells) {
-    const { CELL_SIZE, SPAWN_RADIUS_CELLS, ABSORB_RATIO } = CONFIG;
+  // `absorbRatio` is normally CONFIG.ABSORB_RATIO, but a frenzy pickup raises it
+  // past 1 so even too-big obstacles turn edible for its duration.
+  update(camX, camY, blobRadius, radiusCells, absorbRatio = CONFIG.ABSORB_RATIO) {
+    const { CELL_SIZE, SPAWN_RADIUS_CELLS } = CONFIG;
     const ccx = Math.floor(camX / CELL_SIZE);
     const ccy = Math.floor(camY / CELL_SIZE);
     const R = radiusCells || SPAWN_RADIUS_CELLS;
@@ -163,11 +175,17 @@ export class World {
       }
     }
 
-    // As the blob grows, obstacles become absorbable and drop their bodies.
+    // As the blob grows (or a frenzy raises the ratio), obstacles become
+    // absorbable and drop their bodies. When a frenzy ends, any still-too-big
+    // object that survived reverts to a solid obstacle and gets its body back.
     for (const obj of this.objects) {
-      if (!obj.absorbable && obj.r < blobRadius * ABSORB_RATIO) {
+      const canEat = obj.r < blobRadius * absorbRatio;
+      if (canEat && !obj.absorbable) {
         obj.absorbable = true;
         this.removeBody(obj);
+      } else if (!canEat && obj.absorbable && !obj.absorbing) {
+        obj.absorbable = false;
+        this.attachBody(obj);
       }
     }
   }
